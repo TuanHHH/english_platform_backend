@@ -15,9 +15,11 @@ import com.english.api.user.repository.UserRepository;
 import com.english.api.forum.service.ForumThreadService;
 import com.english.api.forum.util.SlugUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import  com.english.api.forum.dto.response.ForumThreadListResponse;
@@ -26,6 +28,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ForumThreadServiceImpl implements ForumThreadService {
@@ -50,11 +53,18 @@ public class ForumThreadServiceImpl implements ForumThreadService {
   }
 
   @Override
+  @Async
   @Transactional
   public void increaseView(UUID threadId) {
-    var t = threadRepo.findById(threadId).orElseThrow();
-    t.setViewCount(t.getViewCount() + 1);
-    threadRepo.save(t);
+    try {
+      var t = threadRepo.findById(threadId).orElseThrow();
+      t.setViewCount(t.getViewCount() + 1);
+      threadRepo.save(t);
+    } catch (Exception e) {
+      // Log error but don't fail the main request
+      // View count update is non-critical
+      log.error("Failed to increase view count for thread {}: {}", threadId, e.getMessage(), e);
+    }
   }
 
   @Override
